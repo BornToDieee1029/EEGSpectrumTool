@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# All EEG data stays local (raw biometric data, large files). Keep dirs only.
+data/raw/*
+data/interim/*
+data/monk/
+data/external/
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+models/
+.DS_Store
