@@ -48,8 +48,13 @@ class Artifact:
 
 
 def process_raw(raw: mne.io.BaseRaw, art: Artifact) -> dict:
-    """Harmonize -> clean -> backfit -> features (+spectral) -> place + subtype."""
+    """Harmonize -> clean -> backfit -> features (+spectral) -> place + subtype.
+
+    Also fits THIS recording's own microstate maps (for display) so the maps
+    shown reflect the uploaded data, not just the shared template.
+    """
     from .features import spectral_features
+    from .microstates import fit_group_template
     from .score import place
     from .subtypes import estimate
 
@@ -67,8 +72,23 @@ def process_raw(raw: mne.io.BaseRaw, art: Artifact) -> dict:
     subtype = None
     if art.reference is not None:
         subtype = estimate(feats, art.reference)
+
+    # This recording's own microstate maps + how it dwells in each.
+    try:
+        pm = fit_group_template([raw], art.microstates)
+        pfeats = extract(backfit(raw, pm, art.microstates))
+        patient_maps = (pm.maps, list(pm.ch_names))
+        patient_stats = {m: (pfeats.get(f"coverage_{m}", 0.0),
+                             pfeats.get(f"duration_{m}", 0.0))
+                         for m in range(pm.maps.shape[0])}
+    except Exception:  # noqa: BLE001 -- fall back to the shared template
+        patient_maps = (art.template.maps, list(art.template.ch_names))
+        patient_stats = {m: (feats.get(f"coverage_{m}", 0.0),
+                             feats.get(f"duration_{m}", 0.0)) for m in range(4)}
+
     return {"features": feats, "placement": placement, "subtype": subtype,
-            "psd": raw.compute_psd(fmin=1, fmax=40, verbose="ERROR")}
+            "psd": raw.compute_psd(fmin=1, fmax=40, verbose="ERROR"),
+            "patient_maps": patient_maps, "patient_stats": patient_stats}
 
 
 def process_file(path: str | Path, art: Artifact) -> dict:

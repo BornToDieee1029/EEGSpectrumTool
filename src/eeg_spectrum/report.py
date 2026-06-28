@@ -19,6 +19,25 @@ _BAND_DESC = {
 }
 
 
+def _entropy_phrase(e: float) -> str:
+    return ("highly ordered and predictable" if e < 1.15
+            else "moderately ordered" if e < 1.45 else "close to random")
+
+
+def _switch_phrase(s: float) -> str:
+    return "slowly" if s < 7 else "at a typical rate" if s <= 9 else "rapidly"
+
+
+def _alpha_line(a: float) -> str:
+    p = f"{a * 100:.0f}%"
+    if a >= 0.15:
+        return f"Alpha is strong ({p}), consistent with genuine eyes-closed rest."
+    if a >= 0.07:
+        return f"Alpha is modest ({p})."
+    return (f"Alpha is low ({p}) — confirm the recording was eyes-closed and at "
+            "rest, as this can otherwise distort the result.")
+
+
 def _band(stability_vs_controls: float) -> str:
     p = stability_vs_controls
     if p >= 90:
@@ -33,7 +52,7 @@ def _band(stability_vs_controls: float) -> str:
 
 
 def _rule(title: str) -> str:
-    return f"\n{'=' * 68}\n{title}\n{'=' * 68}"
+    return f"\n\n{title}"
 
 
 def render_text(
@@ -77,6 +96,15 @@ def render_text(
              "momentary states at rest. A low position means ordered, predictable "
              "state-switching (the stable extreme, anchored by the monk); a high "
              "position means restless, less predictable switching (the ADHD pole).")
+    if f:
+        L.append("")
+        L.append(f"For this recording specifically: the brain changes state "
+                 f"{_switch_phrase(f.get('switch_rate', 0))} "
+                 f"({f.get('switch_rate', 0):.1f}/s), and its switching is "
+                 f"{_entropy_phrase(f.get('transition_entropy', 0))} "
+                 f"(transition entropy {f.get('transition_entropy', 0):.2f}). "
+                 f"That places it in the {_band(sp)} band relative to the "
+                 f"{control_name or 'reference'} group.")
 
     # ---- Dynamics ---------------------------------------------------------
     if f:
@@ -100,30 +128,39 @@ def render_text(
     if maps:
         L.append(_rule("3. MICROSTATE TEMPLATE MAPS"))
         L.append("The brain cycles through a few recurring scalp-voltage patterns "
-                 "(microstates). The four below were learned from the reference "
-                 "cohort; every recording is scored by how it transitions among "
-                 "them, not by which it contains. Colour polarity is arbitrary.")
+                 "(microstates). The four below are computed from THIS recording; "
+                 "what is scored is how the brain transitions among them, not which "
+                 "it contains. Colour polarity is arbitrary.")
+        if any(d.get("coverage") is not None for d in maps):
+            dom = max(maps, key=lambda d: d.get("coverage") or 0)
+            L.append("")
+            L.append(f"This recording dwelt most in Map {dom['index']} "
+                     f"(over the {dom['region']}, {(dom.get('coverage') or 0)*100:.0f}% "
+                     "of the time).")
         L.append("")
         for d in maps:
             m = d["index"]
-            cov = f.get(f"coverage_{m}")
-            dur = f.get(f"duration_{m}")
-            extra = ""
+            cov = d.get("coverage")
+            dur = d.get("dwell")
+            L.append(f"Map {m} — strongest over the {d['region']} ({d['axis']}).")
+            L.append(f"   What it is: {d['meaning']}")
+            L.append(f"   Network: {d['assoc']}.")
             if cov is not None and dur is not None:
-                extra = f"  [this recording: {cov*100:.0f}% coverage, {dur:.0f} ms mean dwell]"
-            L.append(f"Map {m} — {d['axis']} gradient, strongest at {d['peak']} "
-                     f"({d['region']}).")
-            L.append(f"        {d['assoc']}.{extra}")
-        L.append("")
-        L.append("These canonical associations (visual / attention / auditory "
-                 "networks) are tentative literature mappings, not proven for "
-                 "these specific maps.")
+                L.append(f"   This recording spends {cov*100:.0f}% of the time in "
+                         f"Map {m}, about {dur:.0f} ms per visit.")
+            L.append("")
+        L.append("The network labels are tentative associations from the EEG "
+                 "literature, not proven for these specific maps.")
 
     # ---- Spectral profile -------------------------------------------------
     if f and all(f"rel_{b}" in f for b in _BANDS):
         L.append(_rule("4. SPECTRAL PROFILE (relative band power)"))
         for b in _BANDS:
             L.append(f"  {b:<6} {f['rel_'+b]*100:5.1f}%   — {_BAND_DESC[b]}")
+        top = max(_BANDS, key=lambda b: f["rel_" + b])
+        L.append("")
+        L.append(f"This recording is dominated by {top} activity "
+                 f"({f['rel_' + top] * 100:.0f}%). " + _alpha_line(f["rel_alpha"]))
         if "theta_beta_ratio" in f:
             L.append("")
             L.append(f"Theta/beta ratio        : {f['theta_beta_ratio']:.2f}")

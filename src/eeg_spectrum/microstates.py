@@ -74,20 +74,28 @@ def describe_maps(maps: np.ndarray, ch_names: list[str]) -> list[dict]:
         cy = abs(np.corrcoef(v, y)[0, 1])
         peak = ch_names[int(np.argmax(np.abs(v)))]
         region = _REGION.get(peak, peak)
-        if cy >= cx:
-            axis = "anterior–posterior (front-to-back)"
-            if "occipital" in region or "parietal" in region:
-                assoc = ("posterior-dominant — resembles the visual-network "
-                         "microstate (canonical B/C family)")
-            else:
-                assoc = ("frontally-dominant — resembles the attention / "
-                         "frontoparietal microstate (canonical D family)")
+        posterior = any(w in region for w in ("occipital", "parietal", "posterior"))
+        if cy >= cx and posterior:
+            axis = "front-to-back, anchored at the back of the head"
+            assoc = "visual / posterior network (canonical map B/C)"
+            meaning = ("activity sweeps from the front of the head to the back and "
+                       "is strongest over the visual area at the back. It reflects "
+                       "the brain's visual and resting sensory network.")
+        elif cy >= cx:
+            axis = "front-to-back, anchored at the front of the head"
+            assoc = "attention / executive network (canonical map D)"
+            meaning = ("activity sweeps from front to back and is strongest over "
+                       "the forehead. It reflects the attention and "
+                       "executive-control network — the pattern most often altered "
+                       "in ADHD.")
         else:
-            axis = "left–right (between-hemisphere)"
-            assoc = ("lateralized — resembles the diagonal auditory/visual "
-                     "microstates (canonical A/B family)")
+            axis = "side-to-side, between the two hemispheres"
+            assoc = "lateralized language / visual network (canonical map A/B)"
+            meaning = ("one side of the head is positive while the other is "
+                       "negative. It reflects left-versus-right hemisphere balance, "
+                       "linked to the language and visual networks.")
         out.append({"index": m, "axis": axis, "peak": peak,
-                    "region": region, "assoc": assoc})
+                    "region": region, "assoc": assoc, "meaning": meaning})
     return out
 
 

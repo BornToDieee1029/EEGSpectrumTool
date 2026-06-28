@@ -223,5 +223,6 @@ data/monk/
 data/external/
 !data/raw/.gitkeep
 !data/interim/.gitkeep
-models/
+models/*
+!models/spectrum_model.joblib
 .DS_Store
