@@ -281,10 +281,18 @@ def _muse_flow():
 
     st.markdown("## Result — band-power screen")
     c1, c2, c3 = st.columns(3)
-    c1.metric("Theta/beta ratio", f"{res['theta_beta']:.2f}")
-    c2.metric("Frontal theta/beta",
-              f"{res['frontal_theta_beta']:.2f}" if res['frontal_theta_beta'] else "—")
-    c3.metric("Channels", f"{res['n_channels']} (Muse)")
+    c1.metric("ADHD screening indicator",
+              f"{res['adhd_indicator']:.0f}/100", help="experimental, theta/beta-based")
+    c2.metric("Indicator band", res["adhd_band"].title())
+    c3.metric("Theta/beta ratio", f"{res['theta_beta']:.2f}")
+    _caption(
+        "Screening indicator",
+        "An <b>experimental</b> ADHD screening indicator from the <b>theta/beta "
+        "ratio</b> (the historic EEG marker behind the discontinued NEBA system). "
+        "Higher theta/beta has been associated with inattention — but the marker "
+        "is <b>weak and not validated</b> (it performed at chance for ADHD in our "
+        "16-channel data). Read it as a rough screen for the Muse band-power mode, "
+        "<b>not a diagnosis</b> and not the microstate spectrum.")
 
     st.pyplot(_muse_bands_fig(res["bands"]), use_container_width=True)
     _caption(
