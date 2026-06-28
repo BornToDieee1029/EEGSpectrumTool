@@ -442,11 +442,15 @@ def main():
         "confirmation that this is genuine relaxed, eyes-closed resting EEG.")
 
     st.markdown("## Microstate maps — this recording")
-    pmaps, pch = out["patient_maps"]
+    pmaps, pch = out.get("patient_maps",
+                         (art.template.maps, list(art.template.ch_names)))
+    pstats = out.get("patient_stats", {
+        m: (feats.get(f"coverage_{m}", 0.0), feats.get(f"duration_{m}", 0.0))
+        for m in range(pmaps.shape[0])})
     st.pyplot(_maps_fig(pmaps, pch), use_container_width=True)
     maps_desc = describe_maps(pmaps, list(pch))
     for d in maps_desc:
-        cov, dwell = out["patient_stats"].get(d["index"], (0.0, 0.0))
+        cov, dwell = pstats.get(d["index"], (0.0, 0.0))
         d["coverage"], d["dwell"] = cov, dwell
     rows = "".join(
         f"<p style='margin:0.45rem 0'><b>Map {d['index']}</b> — strongest over the "
