@@ -171,6 +171,45 @@ def load_hbn_set(path: str | Path) -> mne.io.BaseRaw:
     return raw
 
 
+MUSE_CHANNELS = ["TP9", "AF7", "AF8", "TP10"]
+
+
+def load_muse(path: str | Path) -> mne.io.BaseRaw:
+    """Load a 4-channel Muse headband recording (TP9, AF7, AF8, TP10).
+
+    Supports a Mind Monitor CSV export (columns RAW_TP9 ... or TP9 ...) at 256 Hz,
+    or an EDF/FIF that contains those four channels. Microvolts -> volts.
+    """
+    path = Path(path)
+    if path.suffix.lower() == ".csv":
+        df = pd.read_csv(path)
+        upper = {c.upper(): c for c in df.columns}
+        cols, names = [], []
+        for ch in MUSE_CHANNELS:
+            for cand in (f"RAW_{ch}", ch, f"EEG_{ch}"):
+                if cand.upper() in upper:
+                    cols.append(upper[cand.upper()])
+                    names.append(ch)
+                    break
+        if len(cols) < 4:
+            raise ValueError(
+                "Muse CSV must contain TP9, AF7, AF8, TP10 (optionally RAW_-"
+                f"prefixed). Found columns: {', '.join(map(str, df.columns[:8]))}")
+        data = df[cols].to_numpy(dtype=float).T
+        data = data[:, ~np.isnan(data).any(axis=0)]      # drop non-EEG NaN rows
+        info = mne.create_info(names, sfreq=256.0, ch_types="eeg")
+        info.set_montage("standard_1020", on_missing="ignore", verbose="ERROR")
+        return mne.io.RawArray(data * 1e-6, info, verbose="ERROR")
+
+    raw = (mne.io.read_raw_fif(path, preload=True, verbose="ERROR")
+           if path.suffix.lower() == ".fif" else load_eeg(path))
+    keep = [c for c in raw.info["ch_names"] if c.upper() in
+            {ch.upper() for ch in MUSE_CHANNELS}]
+    if len(keep) < 4:
+        raise ValueError("file must contain the Muse channels TP9/AF7/AF8/TP10")
+    return raw.pick(keep)
+
+
 def load_any(path: str | Path) -> mne.io.BaseRaw:
     """Load any supported recording, dispatching OpenBCI .txt vs standard formats.
 

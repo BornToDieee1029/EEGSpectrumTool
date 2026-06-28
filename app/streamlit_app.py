@@ -24,7 +24,9 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from eeg_spectrum import io as eeg_io
 from eeg_spectrum.microstates import describe_maps
+from eeg_spectrum.muse import muse_screen
 from eeg_spectrum.pipeline import CORE_FEATURES, load_artifact, process_file
 from eeg_spectrum.report import render_text
 
@@ -229,6 +231,77 @@ def _dist_fig(feats, control_df, adhd_df, feature, label, control_name):
     return fig
 
 
+def _muse_bands_fig(bands):
+    fig, ax = plt.subplots(figsize=(8.4, 3))
+    names = BANDS
+    ax.bar(names, [bands[b] * 100 for b in names], color=CLAY, width=0.6)
+    ax.set_ylabel("relative power (%)")
+    fig.tight_layout()
+    return fig
+
+
+def _muse_flow():
+    st.markdown("## Muse headband — experimental band-power screen")
+    _note("This is a <b>4-channel</b> headband (TP9, AF7, AF8, TP10). It "
+          "<b>cannot</b> compute microstate dynamics or place a recording on the "
+          "state-stability spectrum — that needs 16+ scalp electrodes. This screen "
+          "reports band powers and the theta/beta ratio only: a historically-"
+          "studied but <b>weak</b> attention-related marker. It is not a diagnosis, "
+          "and not comparable to the monk or ADHD spectrum.")
+    st.markdown(
+        "<div class='reqs'><b>Muse recording requirements</b>"
+        "<ul>"
+        "<li><b>Resting, eyes closed, still</b>, 2–5 minutes</li>"
+        "<li>Good headband fit — all four sensors making contact</li>"
+        "<li>Export a <b>Mind Monitor CSV</b> (raw EEG), or an EDF/FIF containing "
+        "TP9, AF7, AF8, TP10</li>"
+        "</ul></div>", unsafe_allow_html=True)
+
+    up = st.file_uploader("Muse recording (.csv, .edf, or .fif)",
+                          type=["csv", "edf", "fif"], label_visibility="collapsed")
+    if up is None:
+        _note("Upload a Muse recording to run the band-power screen.")
+        return
+
+    with tempfile.NamedTemporaryFile(suffix=Path(up.name).suffix, delete=False) as tmp:
+        tmp.write(up.getbuffer())
+        tmp_path = tmp.name
+    try:
+        with st.spinner("Reading Muse data and computing band powers…"):
+            res = muse_screen(eeg_io.load_muse(tmp_path))
+    except Exception as exc:  # noqa: BLE001
+        _note(f"Could not process this file: {exc}")
+        return
+
+    st.markdown("## Result — band-power screen")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Theta/beta ratio", f"{res['theta_beta']:.2f}")
+    c2.metric("Frontal theta/beta",
+              f"{res['frontal_theta_beta']:.2f}" if res['frontal_theta_beta'] else "—")
+    c3.metric("Channels", f"{res['n_channels']} (Muse)")
+
+    st.pyplot(_muse_bands_fig(res["bands"]), use_container_width=True)
+    _caption(
+        "Figure M1",
+        "Relative power in each frequency band from the four Muse sensors "
+        "(bands sum to ~100%). The <b>theta/beta ratio</b> above is the classic "
+        "attention-related EEG marker — elevated values have historically been "
+        "associated with inattention, but the marker is weak (it performed at "
+        "chance for ADHD in our 16-channel data), so read it as a rough screen, "
+        "not evidence.")
+    st.pyplot(_psd_fig(res["psd"]), use_container_width=True)
+    _caption(
+        "Figure M2",
+        "Power spectral density from the Muse sensors. A bump near 10 Hz (alpha) "
+        "confirms a genuine relaxed, eyes-closed recording.")
+    st.markdown(
+        "<div class='footer'>Experimental low-density screen. A 4-channel headband "
+        "cannot measure microstate dynamics, so this mode does not produce a "
+        "state-stability position and is not comparable to the clinical-cap "
+        "results. For the full spectrum, use a 16+ channel 10-20 system.</div>",
+        unsafe_allow_html=True)
+
+
 def main():
     st.set_page_config(page_title="EEG Microstate State-Stability Spectrum Model",
                        layout="wide")
@@ -292,6 +365,16 @@ def main():
         _note("Model not found. Run <code>python scripts/train_model.py</code> first.")
         return
     art = _artifact()
+
+    _step("Recording device")
+    device = st.selectbox(
+        "Device",
+        ["Clinical / research cap (16+ channels) — full spectrum",
+         "Muse headband (4 channels) — experimental band-power screen"],
+        label_visibility="collapsed")
+    if device.startswith("Muse"):
+        _muse_flow()
+        return
 
     _step("Step 1 · Patient age range")
     age_label = st.selectbox("Age range", ["— select —", *AGE_RANGES.keys()],
