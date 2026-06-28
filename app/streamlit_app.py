@@ -257,6 +257,12 @@ def _muse_flow():
         "TP9, AF7, AF8, TP10</li>"
         "</ul></div>", unsafe_allow_html=True)
 
+    if not hasattr(eeg_io, "load_muse"):
+        _note("Muse support is in the code but not loaded in this running "
+              "process (a stale-module cache). <b>Fully reboot the app</b> "
+              "(Manage app → Reboot, not just rerun) to pick it up.")
+        return
+
     up = st.file_uploader("Muse recording (.csv, .edf, or .fif)",
                           type=["csv", "edf", "fif"], label_visibility="collapsed")
     if up is None:
