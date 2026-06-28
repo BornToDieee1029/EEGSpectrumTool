@@ -153,14 +153,42 @@ def iter_adhd_subjects(path: str | Path):
         yield str(sid), str(label), raw
 
 
+# EGI HydroCel GSN-128 -> 10-20 (the documented physical-net correspondence used
+# by HBN). Validated functionally: eyes-closed shows posterior alpha dominance.
+HBN_EGI_MAP = {
+    "E22": "Fp1", "E9": "Fp2", "E24": "F3", "E124": "F4", "E33": "F7",
+    "E122": "F8", "E36": "C3", "E104": "C4", "E45": "T7", "E108": "T8",
+    "E52": "P3", "E92": "P4", "E58": "P7", "E96": "P8", "E70": "O1", "E83": "O2",
+}
+
+
+def load_hbn_set(path: str | Path) -> mne.io.BaseRaw:
+    """Load an HBN 129-channel EGI .set and reduce it to our 16 10-20 channels."""
+    raw = mne.io.read_raw_eeglab(path, preload=True, verbose="ERROR")
+    present = [e for e in HBN_EGI_MAP if e in raw.info["ch_names"]]
+    raw.pick(present)
+    raw.rename_channels({e: HBN_EGI_MAP[e] for e in present})
+    return raw
+
+
 def load_any(path: str | Path) -> mne.io.BaseRaw:
     """Load any supported recording, dispatching OpenBCI .txt vs standard formats.
 
     Used by the app's file uploader, which doesn't know the format in advance.
+    Auto-detects EGI HydroCel nets (E1..E128) and maps them to our 10-20 set.
     """
     path = Path(path)
     if path.suffix.lower() == ".txt":
         return load_openbci_txt(path)
+    if path.suffix.lower() == ".set":
+        raw = mne.io.read_raw_eeglab(path, preload=True, verbose="ERROR")
+        is_egi = sum(e in raw.info["ch_names"] for e in HBN_EGI_MAP) >= 12
+        if is_egi and "Fp1" not in raw.info["ch_names"]:
+            present = [e for e in HBN_EGI_MAP if e in raw.info["ch_names"]]
+            raw.pick(present)
+            raw.rename_channels({e: HBN_EGI_MAP[e] for e in present})
+            return raw
+        return normalize_ch_names(raw)
     return load_eeg(path)
 
 

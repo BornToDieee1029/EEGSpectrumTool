@@ -84,6 +84,32 @@ k=4 microstates (literature default, not data-selected here); temporal smoothing
 parameters chosen to yield physiological ~110 ms durations; logistic axis rather
 than alternatives. These are reasonable defaults, not tuned optima.
 
+## 9. ADHD subtypes cannot be detected (only explored)
+Clinical ADHD has three presentations (predominantly inattentive, predominantly
+hyperactive-impulsive, combined; per CDC), and diagnosis depends on symptom
+history across settings, not EEG. The Kaggle cohort carries only binary
+ADHD/control labels — no subtype labels — so the tool **cannot classify
+subtypes**. To do so would require training data labeled `control`,
+`ADHD_inattentive`, `ADHD_hyperactive_impulsive`, `ADHD_combined`. Unsupervised
+clustering of the ADHD subjects found no convincing subgroup structure
+(silhouette ~0.21 at k=2/3). Defensible claim: *"explores whether EEG microstate
+dynamics differ across ADHD presentations,"* not *"detects ADHD subtype."*
+
+## 10. Spectral features add nothing here (and that's the point)
+Adding band powers and the theta/beta ratio — the classic ADHD spectral marker
+behind NEBA — scored **below chance** (AUC 0.45) and *reduced* the combined
+classifier (0.70 -> 0.64). This reproduces the empirical reason NEBA failed and
+supports anchoring the tool on microstate dynamics rather than spectral ratios.
+
+## 11. The adolescent reference is a small community sample
+The 7–18 reference comes from HBN (OpenNeuro ds005505), a **community/
+transdiagnostic biobank** — the children are *not* screened healthy, so some
+have ADHD or other diagnoses. Treat it as an age-appropriate reference
+population, not a clean control group. It is also small (n≈8 here) and was
+recorded on a 128-channel EGI net reduced to our 16 channels via the documented
+EGI→10-20 correspondence (validated functionally: eyes-closed posterior alpha
+dominance). Larger, screened samples would strengthen it.
+
 ## What is solid
 - Reproducible: fixed seeds throughout, determinism guarded by a test.
 - The harmonization is correct (verified: monk + ADHD land in one identical

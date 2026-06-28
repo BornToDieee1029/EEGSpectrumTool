@@ -43,6 +43,54 @@ class Segmentation:
     n_states: int
 
 
+_REGION = {
+    "Fp1": "left prefrontal", "Fp2": "right prefrontal",
+    "F3": "left frontal", "F4": "right frontal",
+    "F7": "left frontotemporal", "F8": "right frontotemporal",
+    "C3": "left central", "C4": "right central",
+    "T7": "left temporal", "T8": "right temporal",
+    "P3": "left parietal", "P4": "right parietal",
+    "P7": "left posterior-temporal", "P8": "right posterior-temporal",
+    "O1": "left occipital", "O2": "right occipital",
+}
+
+
+def describe_maps(maps: np.ndarray, ch_names: list[str]) -> list[dict]:
+    """Describe each template map's dominant voltage axis from electrode geometry.
+
+    Returns, per map: dominant axis (anterior-posterior vs left-right), the
+    strongest electrode and its scalp region, and a tentative canonical-microstate
+    association (heuristic, from topography only).
+    """
+    info = mne.create_info(list(ch_names), 100, "eeg")
+    info.set_montage("standard_1020", on_missing="ignore", verbose="ERROR")
+    pos = info.get_montage().get_positions()["ch_pos"]
+    P = np.array([pos[c] for c in ch_names])
+    x, y = P[:, 0], P[:, 1]   # +x = right, +y = anterior
+    out = []
+    for m in range(maps.shape[0]):
+        v = maps[m]
+        cx = abs(np.corrcoef(v, x)[0, 1])
+        cy = abs(np.corrcoef(v, y)[0, 1])
+        peak = ch_names[int(np.argmax(np.abs(v)))]
+        region = _REGION.get(peak, peak)
+        if cy >= cx:
+            axis = "anterior–posterior (front-to-back)"
+            if "occipital" in region or "parietal" in region:
+                assoc = ("posterior-dominant — resembles the visual-network "
+                         "microstate (canonical B/C family)")
+            else:
+                assoc = ("frontally-dominant — resembles the attention / "
+                         "frontoparietal microstate (canonical D family)")
+        else:
+            axis = "left–right (between-hemisphere)"
+            assoc = ("lateralized — resembles the diagonal auditory/visual "
+                     "microstates (canonical A/B family)")
+        out.append({"index": m, "axis": axis, "peak": peak,
+                    "region": region, "assoc": assoc})
+    return out
+
+
 def fit_group_template(
     recordings: list[mne.io.BaseRaw], cfg: MicrostateConfig
 ) -> MicrostateMaps:

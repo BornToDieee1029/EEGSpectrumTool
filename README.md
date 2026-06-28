@@ -5,7 +5,21 @@ dynamics — from extraordinary stability (anchored by a Zen monk's empty-mind
 recording) to the constant state-switching characteristic of ADHD. A decision-
 **support** tool for researchers and clinicians, not a diagnosis.
 
-Full design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Full design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · limitations:
+[`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
+
+## Scope and claims (honest)
+
+- **Binary signal is real:** ADHD vs control separate on microstate dynamics
+  (leave-one-subject-out CV AUC ~0.70).
+- **Spectral features don't help:** theta/beta ratio and band powers score
+  *below chance* here and degrade the classifier — directly reproducing why the
+  theta/beta-based NEBA tool failed. Microstate dynamics carry the signal.
+- **Subtypes (inattentive / hyperactive-impulsive / combined): NOT detectable.**
+  The cohort has no subtype labels, and unsupervised clustering finds no
+  convincing EEG subgroups (silhouette ~0.21). The honest claim is that the tool
+  *explores whether* microstate dynamics differ across ADHD presentations — it
+  cannot classify them without subtype-labeled training data.
 
 ## Setup 
 

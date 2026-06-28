@@ -11,9 +11,40 @@ Core hypothesis, in feature terms:
 
 from __future__ import annotations
 
+import mne
 import numpy as np
 
 from .microstates import Segmentation
+
+# Standard EEG bands. The theta/beta ratio is the classic ADHD spectral marker
+# (and what NEBA relied on) -- here it is ONE feature among many, not the whole
+# claim. Frontal channels stand in for the fronto-central sites where the ADHD
+# theta/beta effect is strongest (our montage has no midline Fz/Cz).
+_BANDS = {"delta": (1, 4), "theta": (4, 8), "alpha": (8, 12),
+          "beta": (12, 30), "gamma": (30, 40)}
+_FRONTAL = ("Fp1", "Fp2", "F3", "F4", "F7", "F8")
+
+
+def spectral_features(raw: mne.io.BaseRaw) -> dict[str, float]:
+    """Relative band powers + theta/beta ratios from a cleaned recording."""
+    psd = raw.compute_psd(fmin=1, fmax=40, verbose="ERROR")
+    psds, freqs = psd.get_data(return_freqs=True)
+    feats: dict[str, float] = {}
+
+    mean_psd = psds.mean(axis=0)
+    total = mean_psd.sum() + 1e-30
+    for band, (lo, hi) in _BANDS.items():
+        idx = (freqs >= lo) & (freqs < hi)
+        feats[f"rel_{band}"] = float(mean_psd[idx].sum() / total)
+    feats["theta_beta_ratio"] = feats["rel_theta"] / (feats["rel_beta"] + 1e-9)
+
+    frontal = [c for c in _FRONTAL if c in raw.info["ch_names"]]
+    if frontal:
+        fp = psds[[raw.info["ch_names"].index(c) for c in frontal]].mean(axis=0)
+        ft = fp[(freqs >= 4) & (freqs < 8)].sum()
+        fb = fp[(freqs >= 12) & (freqs < 30)].sum()
+        feats["frontal_theta_beta"] = float(ft / (fb + 1e-30))
+    return feats
 
 
 def _runs(labels: np.ndarray):
