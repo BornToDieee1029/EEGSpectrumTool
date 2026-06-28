@@ -7,7 +7,7 @@ recording) to the constant state-switching characteristic of ADHD. A decision-
 
 Full design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Setup
+## Setup 
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
